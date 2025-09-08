@@ -1182,7 +1182,7 @@ class Base_Task(gym.Env):
             target_dis=grasp_dis,
             contact_point_id=contact_point_id,
         )
-        if pre_grasp_pose == grasp_dis:
+        if pre_grasp_pose == grasp_pose:
             return arm_tag, [
                 Action(arm_tag, "move", target_pose=pre_grasp_pose),
                 Action(arm_tag, "close", target_gripper_pos=gripper_pos),
@@ -1455,7 +1455,7 @@ class Base_Task(gym.Env):
 
         return True  # TODO: maybe need try error
 
-    def take_action(self, action, action_type='qpos'):  # action_type: qpos or ee
+    def take_action(self, action, action_type:Literal['qpos', 'ee', 'delta_ee']='qpos'):  # action_type: qpos or ee
         if self.take_action_cnt == self.step_lim or self.eval_success:
             return
 
@@ -1550,7 +1550,28 @@ class Base_Task(gym.Env):
                 topp_right_flag = False
                 right_n_step = 50  # fixed
         
-        elif action_type == 'ee':
+        elif action_type == 'ee' or action_type == 'delta_ee':
+            # ====================== delta_ee control ======================
+            if action_type == 'delta_ee':
+                now_left_action = self.get_arm_pose("left")
+                now_right_action = self.get_arm_pose("right")
+                def transfer_action(action, delta_action):
+                    action_mat = np.eye(4)
+                    delta_mat = np.eye(4)
+                    action_mat[:3, 3] = action[:3]
+                    action_mat[:3, :3] = t3d.quaternions.quat2mat(action[3:])
+                    delta_mat[:3, 3] = delta_action[:3]
+                    delta_mat[:3, :3] = t3d.quaternions.quat2mat(delta_action[3:])
+                    new_mat = action_mat @ delta_mat
+                    new_p = new_mat[:3, 3]
+                    new_q = t3d.quaternions.mat2quat(new_mat[:3, :3])
+                    return np.concatenate((new_p, new_q))
+                now_left_action = transfer_action(now_left_action, left_arm_actions[0])
+                now_right_action = transfer_action(now_right_action, right_arm_actions[0])
+                left_arm_actions = np.array([now_left_action])
+                right_arm_actions = np.array([now_right_action])
+            # ====================== end of delta_ee control ===============
+
             left_result = self.robot.left_plan_path(left_arm_actions[0])
             right_result = self.robot.right_plan_path(right_arm_actions[0])
             if left_result["status"] != "Success":
@@ -1631,9 +1652,12 @@ class Base_Task(gym.Env):
 
             self.scene.step()
             self._update_render()
-
+                
             if self.check_success():
                 self.eval_success = True
+                self.get_obs() # update obs
+                if (self.eval_video_path is not None):
+                    self.eval_video_ffmpeg.stdin.write(self.now_obs["observation"]["head_camera"]["rgb"].tobytes())
                 return
 
         self._update_render()
