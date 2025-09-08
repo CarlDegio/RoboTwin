@@ -1,0 +1,34 @@
+{
+    "sim-stack_block-demo_randomized-5": {
+        "dataset_dir": "./processed_data/sim-stack_block/demo_randomized-5",
+        "num_episodes": 5,
+        "episode_len": 300,
+        "camera_names": [
+            "fisheye_rgb"
+        ]
+    },
+    "sim-stack_block-demo_randomized-111": {
+        "dataset_dir": "./processed_data/sim-stack_block/demo_randomized-111",
+        "num_episodes": 111,
+        "episode_len": 300,
+        "camera_names": [
+            "fisheye_rgb"
+        ]
+    },
+    "sim-click_bell-demo_randomized-111": {
+        "dataset_dir": "./processed_data/sim-click_bell/demo_randomized-111",
+        "num_episodes": 111,
+        "episode_len": 300,
+        "camera_names": [
+            "fisheye_rgb"
+        ]
+    },
+    "sim-hammer_beat-demo_randomized-111": {
+        "dataset_dir": "./processed_data/sim-hammer_beat/demo_randomized-111",
+        "num_episodes": 111,
+        "episode_len": 300,
+        "camera_names": [
+            "fisheye_rgb"
+        ]
+    }
+}

@@ -155,7 +155,7 @@ def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_s
         batch_size=batch_size_train,
         shuffle=True,
         pin_memory=True,
-        num_workers=1,
+        num_workers=4,
         prefetch_factor=1,
     )
     val_dataloader = DataLoader(
@@ -163,7 +163,7 @@ def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_s
         batch_size=batch_size_val,
         shuffle=True,
         pin_memory=True,
-        num_workers=1,
+        num_workers=4,
         prefetch_factor=1,
     )
 

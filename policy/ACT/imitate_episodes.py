@@ -62,12 +62,13 @@ def main(args):
     camera_names = task_config["camera_names"]
 
     # fixed parameters
-    state_dim = 14  # yiheng
+    state_dim = 1+6+7  # yiheng
+    action_dim = 1+7
     lr_backbone = 1e-5
     backbone = "resnet18"
     if policy_class == "ACT":
         enc_layers = 4
-        dec_layers = 7
+        dec_layers = 1
         nheads = 8
         policy_config = {
             "lr": args["lr"],
@@ -98,6 +99,7 @@ def main(args):
         "ckpt_dir": ckpt_dir,
         "episode_len": episode_len,
         "state_dim": state_dim,
+        "action_dim": action_dim,
         "lr": args["lr"],
         "policy_class": policy_class,
         "onscreen_render": onscreen_render,
@@ -415,7 +417,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             summary_string += f"{k}: {v.item():.3f} "
         print(summary_string)
 
-        if epoch % 500 == 0:  # TODO
+        if epoch % 1000 == 0:  # TODO
             ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{epoch}_seed_{seed}.ckpt")
             torch.save(policy.state_dict(), ckpt_path)
             plot_history(train_history, validation_history, epoch, ckpt_dir, seed)

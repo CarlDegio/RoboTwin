@@ -5,6 +5,12 @@ expert_data_num=${3}
 seed=${4}
 gpu_id=${5}
 
+# task_name=stack_block
+# task_config=demo_randomized
+# expert_data_num=5
+# seed=0
+# gpu_id=0
+
 DEBUG=False
 save_ckpt=True
 
@@ -17,7 +23,7 @@ python3 imitate_episodes.py \
     --kl_weight 10 \
     --chunk_size 50 \
     --hidden_dim 512 \
-    --batch_size 8 \
+    --batch_size 64 \
     --dim_feedforward 3200 \
     --num_epochs 6000 \
     --lr 1e-5 \
