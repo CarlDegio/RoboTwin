@@ -67,7 +67,8 @@ def main():
     zarr_meta = zarr_root.create_group("meta")
 
     fisheye_camera_arrays = []
-    episode_ends_arrays, state_arrays, action_arrays = (
+    episode_ends_arrays, state_arrays, action_arrays, val_arrays = (
+        [],
         [],
         [],
         [],
@@ -89,6 +90,7 @@ def main():
             fisheye_camera_arrays.append(fisheye_img)
             state_arrays.append(joint_state)
             action_arrays.append(action)
+            val_arrays.append(np.array([j/action_gripper_rad.shape[0]]))
 
         current_ep += 1
         total_count += action_gripper_rad.shape[0]
@@ -100,7 +102,7 @@ def main():
     state_arrays = np.array(state_arrays)
     fisheye_camera_arrays = np.array(fisheye_camera_arrays)
     action_arrays = np.array(action_arrays)
-
+    val_arrays = np.array(val_arrays)
     fisheye_camera_arrays = np.moveaxis(fisheye_camera_arrays, -1, 1)  # NHWC -> NCHW
 
     compressor = zarr.Blosc(cname="zstd", clevel=3, shuffle=1)
@@ -108,6 +110,7 @@ def main():
     state_chunk_size = (100, state_arrays.shape[1])
     joint_chunk_size = (100, action_arrays.shape[1])
     head_camera_chunk_size = (100, *fisheye_camera_arrays.shape[1:])
+    val_chunk_size = (100, val_arrays.shape[1])
     zarr_data.create_dataset(
         "fisheye_camera",
         data=fisheye_camera_arrays,
@@ -135,6 +138,14 @@ def main():
         "episode_ends",
         data=episode_ends_arrays,
         dtype="int64",
+        overwrite=True,
+        compressor=compressor,
+    )
+    zarr_data.create_dataset(
+        "val",
+        data=val_arrays,
+        chunks=val_chunk_size,
+        dtype="float32",
         overwrite=True,
         compressor=compressor,
     )

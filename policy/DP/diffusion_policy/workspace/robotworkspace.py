@@ -165,26 +165,39 @@ class RobotWorkspace(BaseWorkspace):
                         if train_sampling_batch is None:
                             train_sampling_batch = batch
                         # compute loss
-                        raw_loss = self.model.compute_loss(batch)
-                        loss = raw_loss / cfg.training.gradient_accumulate_every
+                        raw_loss_dict = self.model.compute_loss(batch)
+                        loss = raw_loss_dict["bc_loss"] / cfg.training.gradient_accumulate_every
+                        
+                        self.model.reward_classifier.optim.zero_grad()
+                        raw_loss_dict["reward_loss"].backward()
+                        self.model.reward_classifier.optim.step()
+                        self.model.reward_classifier.ema_update()
+
+                        self.model.rnd_target_classifier.optim.zero_grad()
+                        raw_loss_dict["rnd_loss"].backward()
+                        self.model.rnd_target_classifier.optim.step()
+                        self.model.rnd_target_classifier.ema_update()
+                        
+                        self.optimizer.zero_grad()
                         loss.backward()
 
                         # step optimizer
-                        if (self.global_step % cfg.training.gradient_accumulate_every == 0):
-                            self.optimizer.step()
-                            self.optimizer.zero_grad()
-                            lr_scheduler.step()
+                        # if (self.global_step % cfg.training.gradient_accumulate_every == 0):
+                        self.optimizer.step()
+                        lr_scheduler.step()
 
                         # update ema
                         if cfg.training.use_ema:
                             ema.step(self.model)
 
                         # logging
-                        raw_loss_cpu = raw_loss.item()
+                        raw_loss_cpu = raw_loss_dict["bc_loss"].item()
                         tepoch.set_postfix(loss=raw_loss_cpu, refresh=False)
                         train_losses.append(raw_loss_cpu)
                         step_log = {
                             "train_loss": raw_loss_cpu,
+                            "reward_loss": raw_loss_dict["reward_loss"].item(),
+                            "rnd_loss": raw_loss_dict["rnd_loss"].item(),
                             "global_step": self.global_step,
                             "epoch": self.epoch,
                             "lr": lr_scheduler.get_last_lr()[0],
@@ -229,8 +242,8 @@ class RobotWorkspace(BaseWorkspace):
                         ) as tepoch:
                             for batch_idx, batch in enumerate(tepoch):
                                 batch = dataset.postprocess(batch, device)
-                                loss = self.model.compute_loss(batch)
-                                val_losses.append(loss)
+                                loss_dict = self.model.compute_loss(batch)
+                                val_losses.append(loss_dict["bc_loss"])
                                 if (cfg.training.max_val_steps
                                         is not None) and batch_idx >= (cfg.training.max_val_steps - 1):
                                     break
@@ -238,6 +251,8 @@ class RobotWorkspace(BaseWorkspace):
                             val_loss = torch.mean(torch.tensor(val_losses)).item()
                             # log epoch average validation loss
                             step_log["val_loss"] = val_loss
+                            step_log["val_reward_loss"] = loss_dict["reward_loss"].item()
+                            step_log["val_rnd_loss"] = loss_dict["rnd_loss"].item()
 
                 # run diffusion sampling on a training batch
                 if (self.epoch % cfg.training.sample_every) == 0:
@@ -263,6 +278,15 @@ class RobotWorkspace(BaseWorkspace):
                     # checkpointing
                     save_name = pathlib.Path(self.cfg.task.dataset.zarr_path).stem
                     self.save_checkpoint(f"checkpoints/{save_name}-{seed}/{self.epoch + 1}.ckpt")  # TODO
+                    torch.save({"model":self.model.reward_classifier.model.state_dict(), 
+                                "model_ema":self.model.reward_classifier.model_ema.state_dict()},
+                               f"checkpoints/{save_name}-{seed}/reward_classifier_{self.epoch + 1}.pth")
+                    torch.save({"model":self.model.rnd_target_classifier.model.state_dict(), 
+                                "model_ema":self.model.rnd_target_classifier.model_ema.state_dict()
+                                },
+                               f"checkpoints/{save_name}-{seed}/rnd_classifier_{self.epoch + 1}.pth")
+                    torch.save({"model_target":self.model.rnd_target_classifier.target_model.state_dict()},
+                               f"checkpoints/{save_name}-{seed}/rnd_target_classifier_target_model_{self.epoch + 1}.pth")
 
                 # ========= eval end for this epoch ==========
                 policy.train()
@@ -328,7 +352,8 @@ def create_dataloader(
         collate_fn=collate,
         sampler=batch_sampler,
         num_workers=num_workers,
-        pin_memory=False,
+        prefetch_factor=2,
+        pin_memory=pin_memory,
         persistent_workers=persistent_workers,
     )
     return dataloader

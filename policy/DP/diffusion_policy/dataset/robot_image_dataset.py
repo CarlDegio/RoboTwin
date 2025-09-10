@@ -14,6 +14,7 @@ from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.dataset.base_dataset import BaseImageDataset
 from diffusion_policy.common.normalize_util import get_image_range_normalizer
 import pdb
+import cv2
 
 
 class RobotImageDataset(BaseImageDataset):
@@ -34,7 +35,7 @@ class RobotImageDataset(BaseImageDataset):
         self.replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path,
             # keys=['head_camera', 'front_camera', 'left_camera', 'right_camera', 'state', 'action'],
-            keys=["head_camera", "state", "action"],
+            keys=["fisheye_camera", "state", "action", "val"],
         )
 
         val_mask = get_val_mask(n_episodes=self.replay_buffer.n_episodes, val_ratio=val_ratio, seed=seed)
@@ -82,33 +83,33 @@ class RobotImageDataset(BaseImageDataset):
         }
         normalizer = LinearNormalizer()
         normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
-        normalizer["head_cam"] = get_image_range_normalizer()
-        normalizer["front_cam"] = get_image_range_normalizer()
-        normalizer["left_cam"] = get_image_range_normalizer()
-        normalizer["right_cam"] = get_image_range_normalizer()
+        normalizer["fisheye_camera"] = get_image_range_normalizer()
+        # normalizer["front_cam"] = get_image_range_normalizer()
+        # normalizer["left_cam"] = get_image_range_normalizer()
+        # normalizer["right_cam"] = get_image_range_normalizer()
         return normalizer
 
     def __len__(self) -> int:
         return len(self.sampler)
 
-    def _sample_to_data(self, sample):
-        agent_pos = sample["state"].astype(np.float32)  # (agent_posx2, block_posex3)
-        head_cam = np.moveaxis(sample["head_camera"], -1, 1) / 255
-        # front_cam = np.moveaxis(sample['front_camera'],-1,1)/255
-        # left_cam = np.moveaxis(sample['left_camera'],-1,1)/255
-        # right_cam = np.moveaxis(sample['right_camera'],-1,1)/255
+    # def _sample_to_data(self, sample):
+    #     agent_pos = sample["state"].astype(np.float32)  # (agent_posx2, block_posex3)
+    #     head_cam = np.moveaxis(sample["fisheye_camera"], -1, 1) / 255
+    #     # front_cam = np.moveaxis(sample['front_camera'],-1,1)/255
+    #     # left_cam = np.moveaxis(sample['left_camera'],-1,1)/255
+    #     # right_cam = np.moveaxis(sample['right_camera'],-1,1)/255
 
-        data = {
-            "obs": {
-                "head_cam": head_cam,  # T, 3, H, W
-                # 'front_cam': front_cam, # T, 3, H, W
-                # 'left_cam': left_cam, # T, 3, H, W
-                # 'right_cam': right_cam, # T, 3, H, W
-                "agent_pos": agent_pos,  # T, D
-            },
-            "action": sample["action"].astype(np.float32),  # T, D
-        }
-        return data
+    #     data = {
+    #         "obs": {
+    #             "fisheye_cam": head_cam,  # T, 3, H, W
+    #             # 'front_cam': front_cam, # T, 3, H, W
+    #             # 'left_cam': left_cam, # T, 3, H, W
+    #             # 'right_cam': right_cam, # T, 3, H, W
+    #             "agent_pos": agent_pos,  # T, D
+    #         },
+    #         "action": sample["action"].astype(np.float32),  # T, D
+    #     }
+    #     return data
 
     def __getitem__(self, idx) -> Dict[str, torch.Tensor]:
         if isinstance(idx, slice):
@@ -133,20 +134,22 @@ class RobotImageDataset(BaseImageDataset):
 
     def postprocess(self, samples, device):
         agent_pos = samples["state"].to(device, non_blocking=True)
-        head_cam = samples["head_camera"].to(device, non_blocking=True) / 255.0
+        head_cam = samples["fisheye_camera"].to(device, non_blocking=True) / 255.0
         # front_cam = samples['front_camera'].to(device, non_blocking=True) / 255.0
         # left_cam = samples['left_camera'].to(device, non_blocking=True) / 255.0
         # right_cam = samples['right_camera'].to(device, non_blocking=True) / 255.0
         action = samples["action"].to(device, non_blocking=True)
+        val = samples["val"].to(device, non_blocking=True).sum(axis=1)
         return {
             "obs": {
-                "head_cam": head_cam,  # B, T, 3, H, W
+                "fisheye_camera": head_cam,  # B, T, 3, H, W
                 # 'front_cam': front_cam, # B, T, 3, H, W
                 # 'left_cam': left_cam, # B, T, 3, H, W
                 # 'right_cam': right_cam, # B, T, 3, H, W
                 "agent_pos": agent_pos,  # B, T, D
             },
             "action": action,  # B, T, D
+            "val": val,  # B, T, 1
         }
 
 
@@ -180,6 +183,6 @@ def batch_sample_sequence(
     batch_size = len(idx)
     assert data.shape == (batch_size, sequence_length, *input_arr.shape[1:])
     if batch_size >= 16 and data.nbytes // batch_size >= 2**16:
-        _batch_sample_sequence_parallel(data, input_arr, indices, idx, sequence_length)
+        _batch_sample_sequence_sequential(data, input_arr, indices, idx, sequence_length)
     else:
         _batch_sample_sequence_sequential(data, input_arr, indices, idx, sequence_length)
