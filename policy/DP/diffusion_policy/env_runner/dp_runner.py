@@ -92,7 +92,7 @@ class DPRunner:
             # obs_dict_input['front_cam'] = obs_dict['front_cam'].unsqueeze(0)
             # obs_dict_input["left_cam"] = obs_dict["left_cam"].unsqueeze(0)
             # obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
-            # obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
+            obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
 
             action_dict = policy.predict_action(obs_dict_input)
 

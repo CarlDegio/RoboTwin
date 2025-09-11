@@ -431,11 +431,13 @@ class DiffusionUnetImageGuidePolicy(BaseImagePolicy):
 
             # 2. predict model output
             model_output = model(trajectory, t, local_cond=local_cond, global_cond=global_cond)
+            
+            guide_t = torch.full((condition_data.shape[0],), t, dtype=torch.long, device="cuda")
             with torch.enable_grad():
-                log_p, grad = self.reward_classifier.gradients(trajectory.clone(), t, condition=global_cond)
+                log_p, grad = self.reward_classifier.gradients(trajectory.clone(), guide_t, c=global_cond)
             
             # 3. compute previous image: x_t -> x_t-1
-            trajectory = scheduler.step(model_output, t, trajectory, generator=generator, w_cg=0.001, grad=grad, **kwargs).prev_sample
+            trajectory = scheduler.step(model_output, t, trajectory, generator=generator, w_cg=0.0, grad=grad, **kwargs).prev_sample
 
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]
