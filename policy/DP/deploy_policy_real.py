@@ -3,9 +3,13 @@ from .dp_model import DP
 import yaml
 
 def encode_obs(observation):
-    fisheye_cam = (np.moveaxis(observation["observation"]["fisheye_rgb"], -1, 0) / 255)
+    fisheye_camera = (np.moveaxis(observation["observation"]["fisheye_rgb"], -1, 0) / 255)
+    left_camera = (np.moveaxis(observation["observation"]["left_rgb"], -1, 0) / 255)
+    front_camera = (np.moveaxis(observation["observation"]["front_rgb"], -1, 0) / 255)
     obs = dict(
-        fisheye_cam=fisheye_cam,
+        fisheye_camera=fisheye_camera,
+        left_camera=left_camera,
+        front_camera=front_camera,
     )
     qpos = np.concatenate([observation["state"]["arm_end_pose"], observation["state"]["arm_joint"], observation["state"]["gripper_rad"]], axis=-1).astype(np.float32)
     obs["agent_pos"] = qpos

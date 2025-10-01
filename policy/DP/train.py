@@ -52,6 +52,16 @@ def main(cfg: OmegaConf):
         head_camera_cfg["h"],
         head_camera_cfg["w"],
     ]
+    cfg.task.shape_meta.obs.left_camera.shape = [
+        3,
+        head_camera_cfg["h"],
+        head_camera_cfg["w"],
+    ]
+    cfg.task.shape_meta.obs.front_camera.shape = [
+        3,
+        head_camera_cfg["h"],
+        head_camera_cfg["w"],
+    ]
     OmegaConf.resolve(cfg)
 
     cls = hydra.utils.get_class(cfg._target_)

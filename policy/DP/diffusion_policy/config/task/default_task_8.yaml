@@ -7,12 +7,12 @@ shape_meta: &shape_meta
     fisheye_camera:
       shape: *image_shape
       type: rgb
-    # front_cam:
-    #   shape: *image_shape
-    #   type: rgb
-    # left_cam:
-    #   shape: *image_shape
-    #   type: rgb
+    left_camera:
+      shape: *image_shape
+      type: rgb
+    front_camera:
+      shape: *image_shape
+      type: rgb
     # right_cam:
     #   shape: *image_shape
     #   type: rgb

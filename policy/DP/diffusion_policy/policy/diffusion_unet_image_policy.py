@@ -362,17 +362,17 @@ class DiffusionUnetImageGuidePolicy(BaseImagePolicy):
         
         reward_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=1,
-            model_dim=64, emb_dim=1578, dim_mult=[1,2,2,2],
+            model_dim=64, emb_dim=4650, dim_mult=[1,2,2,2],
             timestep_emb_type="positional", kernel_size=3)
         
         rnd_target_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=64,
-            model_dim=64, emb_dim=1578, dim_mult=[1,2,2],
+            model_dim=64, emb_dim=4650, dim_mult=[1,2,2,2],
             timestep_emb_type="positional", kernel_size=3)
         
         rnd_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=64,
-            model_dim=32, emb_dim=1578, dim_mult=[1,2],
+            model_dim=32, emb_dim=4650, dim_mult=[1,2,4,2],
             timestep_emb_type="positional", kernel_size=3)
         
         self.reward_classifier = CumRewClassifier(reward_nn, device = "cuda")
