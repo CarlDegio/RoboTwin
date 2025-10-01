@@ -29,7 +29,7 @@ def load_hdf5(dataset_path):
             root["/state/arm_end_pose"][()],
         )
         obs_gripper_rad = obs_gripper_rad.reshape(-1, 1)
-        image_dict = {'fisheye_rgb': root["/image/fisheye_rgb"][()]}
+        image_dict = {'fisheye_rgb': root["/image/fisheye_rgb"][()], 'left_rgb': root["/image/left_rgb"][()], 'front_rgb': root["/image/front_rgb"][()]}
 
     return action_gripper_rad, action_arm_end_pose, obs_gripper_rad, obs_arm_joint, obs_arm_end_pose ,image_dict
 
@@ -48,15 +48,27 @@ def data_transform(path, episode_num, save_path):
         (load_hdf5(os.path.join(path, f"episode_{i}.hdf5")))
         qpos = np.concatenate([obs_arm_end_pose, obs_arm_joint, obs_gripper_rad], axis=-1).astype(np.float32)
         actions = np.concatenate([action_arm_end_pose, action_gripper_rad], axis=-1).astype(np.float32)
-        cam_high = []
+        cam_fisheye = []
+        cam_left = []
+        cam_front = []
         # left_arm_dim = []
         # right_arm_dim = []
 
         for j in range(0, action_gripper_rad.shape[0]):
-            camera_high_bits = image_dict["fisheye_rgb"][j]
-            camera_high = cv2.imdecode(np.frombuffer(camera_high_bits, np.uint8), cv2.IMREAD_COLOR)
-            camera_high_resized = cv2.resize(camera_high, (640, 480))
-            cam_high.append(camera_high_resized)
+            camera_fisheye_bits = image_dict["fisheye_rgb"][j]
+            camera_fisheye = cv2.imdecode(np.frombuffer(camera_fisheye_bits, np.uint8), cv2.IMREAD_COLOR)
+            camera_fisheye_resized = cv2.resize(camera_fisheye, (640, 480))
+            cam_fisheye.append(camera_fisheye_resized)
+
+            camera_left_bits = image_dict["left_rgb"][j]
+            camera_left = cv2.imdecode(np.frombuffer(camera_left_bits, np.uint8), cv2.IMREAD_COLOR)
+            camera_left_resized = cv2.resize(camera_left, (640, 480))
+            cam_left.append(camera_left_resized)
+
+            camera_front_bits = image_dict["front_rgb"][j]
+            camera_front = cv2.imdecode(np.frombuffer(camera_front_bits, np.uint8), cv2.IMREAD_COLOR)
+            camera_front_resized = cv2.resize(camera_front, (640, 480))
+            cam_front.append(camera_front_resized)
 
         hdf5path = os.path.join(save_path, f"episode_{i}.hdf5")
 
@@ -67,7 +79,9 @@ def data_transform(path, episode_num, save_path):
             # obs.create_dataset("left_arm_dim", data=np.array(left_arm_dim))
             # obs.create_dataset("right_arm_dim", data=np.array(right_arm_dim))
             image = obs.create_group("images")
-            image.create_dataset("fisheye_rgb", data=np.stack(cam_high), dtype=np.uint8)
+            image.create_dataset("fisheye_rgb", data=np.stack(cam_fisheye), dtype=np.uint8)
+            image.create_dataset("left_rgb", data=np.stack(cam_left), dtype=np.uint8)
+            image.create_dataset("front_rgb", data=np.stack(cam_front), dtype=np.uint8)
 
         begin += 1
         print(f"proccess {i} success!")
@@ -111,7 +125,7 @@ if __name__ == "__main__":
         "dataset_dir": f"./processed_data/sim-{task_name}/{task_config}-{expert_data_num}",
         "num_episodes": expert_data_num,
         "episode_len": 300,
-        "camera_names": ["fisheye_rgb"],
+        "camera_names": ["fisheye_rgb", "left_rgb", "front_rgb"],
     }
 
     with open(SIM_TASK_CONFIGS_PATH, "w") as f:

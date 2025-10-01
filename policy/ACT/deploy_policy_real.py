@@ -14,11 +14,18 @@ from argparse import Namespace
 
 def encode_obs(observation):
 
-    fisheye_cam = observation["image"]["fisheye_rgb"]
+    fisheye_cam = cv2.resize(observation["image"]["fisheye_rgb"], (640, 480), interpolation=cv2.INTER_LINEAR)
+    left_cam = cv2.resize(observation["image"]["left_rgb"], (640, 480), interpolation=cv2.INTER_LINEAR)
+    front_cam = cv2.resize(observation["image"]["front_rgb"], (640, 480), interpolation=cv2.INTER_LINEAR)
     fisheye_cam = np.moveaxis(fisheye_cam, -1, 0) / 255.0
+    left_cam = np.moveaxis(left_cam, -1, 0) / 255.0
+    front_cam = np.moveaxis(front_cam, -1, 0) / 255.0
+    
     qpos = np.concatenate([observation["state"]["arm_end_pose"], observation["state"]["arm_joint"], observation["state"]["gripper_rad"]], axis=-1).astype(np.float32)
     return {
         "fisheye_cam": fisheye_cam,
+        "left_cam": left_cam,
+        "front_cam": front_cam,
         "qpos": qpos,
     }
 
