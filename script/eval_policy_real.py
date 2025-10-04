@@ -21,7 +21,7 @@ import pdb
 
 current_file_path = os.path.abspath(__file__)
 parent_directory = os.path.dirname(current_file_path)
-from hardware_interface.common_curobo import pika_arm, pika_sense, calibrate_arm, disable_piper_arm
+from hardware_interface.common_curobo import pika_arm, pika_sense, calibrate_arm, disable_piper_arm, FixCamera
 import hardware_interface.common_curobo as common
 import hardware_interface.math_utils as math_utils
 import time
@@ -46,25 +46,38 @@ class PikaEnv():
         print("arm pose", self.arm.get_arm_pose())
         print("arm pose offset", self.arm.get_arm_pose_offset())
         
+        self.left_camera = FixCamera(camera_param=(320, 240, 60), orbbec_serial_number='CP7JC42000VF')
+        self.front_camera = FixCamera(camera_param=(320, 240, 60), orbbec_serial_number='CP7JC420000N')
         
         for _ in range(3):
             fish_image = self.arm.get_fisheye_rgb()
-            realsense_image = self.arm.get_realsense_rgb()
-        print("camera check done, image shape:", fish_image.shape, realsense_image.shape)
+            left_image = self.left_camera.get_rgb()
+            front_image = self.front_camera.get_rgb()
+            
+        print("camera check done, image shape:", fish_image.shape, left_image.shape, front_image.shape)
         
-        self.logger.info("\033[0;32m"+"waiting for tele start..."+"\033[0m")
+        self.logger.info("\033[0;32m"+"waiting for policy start..."+"\033[0m")
             
         time.sleep(0.5)
         
     def get_obs(self):
         fish_image = self.arm.get_fisheye_rgb()
+        left_image = self.left_camera.get_rgb()
+        front_image = self.front_camera.get_rgb()
         fish_image = cv2.resize(fish_image, (320, 240))
+        left_image = cv2.resize(left_image, (320, 240))
+        front_image = cv2.resize(front_image, (320, 240))
+        cv2.imshow("fish_image", fish_image)
+        cv2.imshow("left_image", left_image)
+        cv2.imshow("front_image", front_image)
+        cv2.waitKey(1)
+        
         arm_joint_state = self.arm.get_joint_position()
         gripper_rad_state = self.arm.get_gripper_msg()[1]
         gripper_rad_state = np.array([gripper_rad_state])
         arm_end_pose_state = np.concatenate(self.arm.get_arm_pose())
         dict_obs = {
-            "image": {"fisheye_rgb": fish_image},
+            "image": {"fisheye_rgb": fish_image, "left_rgb": left_image, "front_rgb": front_image},
             "state": {
                 "arm_joint": arm_joint_state,
                 "gripper_rad": gripper_rad_state,
@@ -92,6 +105,8 @@ class PikaEnv():
         
     def close_env(self):
         self.arm.disconnect()
+        self.left_camera.disconnect()
+        self.front_camera.disconnect()
         
     def __del__(self):
         self.close_env()

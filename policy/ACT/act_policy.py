@@ -120,7 +120,7 @@ class ACT:
         self.max_timesteps = 1000  # Large enough for deployment
 
         # Set query frequency based on temporal_agg - matching imitate_episodes.py logic
-        self.query_frequency = 10
+        self.query_frequency = 5
         if self.temporal_agg:
             self.query_frequency = 1
             # Initialize with zeros matching imitate_episodes.py format
@@ -147,7 +147,7 @@ class ACT:
                 self.stats = None
 
             # Load policy weights
-            ckpt_path = os.path.join(ckpt_dir, "policy_epoch_10771_seed_0.ckpt")
+            ckpt_path = os.path.join(ckpt_dir, "policy_best.ckpt")
             # ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
             print("current pwd:", os.getcwd())
             if os.path.exists(ckpt_path):
@@ -156,6 +156,7 @@ class ACT:
                 print(f"Loading status: {loading_status}")
             else:
                 print(f"Warning: Could not find policy checkpoint at {ckpt_path}")
+                assert False, "Could not find policy checkpoint"
         else:
             self.stats = None
 
@@ -203,7 +204,7 @@ class ACT:
                 # actions_for_curr_step = actions_for_curr_step[-50:]
 
                 # Use same weighting factor as in imitate_episodes.py
-                k = 0.1
+                k = 0.75
                 exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                 exp_weights = exp_weights / exp_weights.sum()
                 
