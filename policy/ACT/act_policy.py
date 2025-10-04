@@ -117,10 +117,10 @@ class ACT:
         self.temporal_agg = args_override.get("temporal_agg", False)
         self.num_queries = args_override["chunk_size"]
         self.state_dim = RoboTwin_Config.action_dim  # Standard joint dimension for bimanual robot
-        self.max_timesteps = 3000  # Large enough for deployment
+        self.max_timesteps = 1000  # Large enough for deployment
 
         # Set query frequency based on temporal_agg - matching imitate_episodes.py logic
-        self.query_frequency = self.num_queries
+        self.query_frequency = 10
         if self.temporal_agg:
             self.query_frequency = 1
             # Initialize with zeros matching imitate_episodes.py format
@@ -147,7 +147,8 @@ class ACT:
                 self.stats = None
 
             # Load policy weights
-            ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
+            ckpt_path = os.path.join(ckpt_dir, "policy_epoch_10771_seed_0.ckpt")
+            # ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
             print("current pwd:", os.getcwd())
             if os.path.exists(ckpt_path):
                 loading_status = self.policy.load_state_dict(torch.load(ckpt_path))
@@ -182,7 +183,7 @@ class ACT:
         # Prepare images following imitate_episodes.py pattern
         # Stack images from all cameras
         curr_images = []
-        camera_names = ["head_cam", "left_cam", "right_cam"]
+        camera_names = ["fisheye_rgb"]
         for cam_name in camera_names:
             curr_images.append(obs[cam_name])
         curr_image = np.stack(curr_images, axis=0)
@@ -199,11 +200,13 @@ class ACT:
                 actions_for_curr_step = self.all_time_actions[:, self.t]
                 actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
                 actions_for_curr_step = actions_for_curr_step[actions_populated]
+                # actions_for_curr_step = actions_for_curr_step[-50:]
 
                 # Use same weighting factor as in imitate_episodes.py
-                k = 0.01
+                k = 0.1
                 exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                 exp_weights = exp_weights / exp_weights.sum()
+                
                 exp_weights = (torch.from_numpy(exp_weights).to(self.device).unsqueeze(dim=1))
 
                 raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)

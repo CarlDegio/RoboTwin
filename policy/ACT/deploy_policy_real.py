@@ -18,7 +18,7 @@ def encode_obs(observation):
     fisheye_cam = np.moveaxis(fisheye_cam, -1, 0) / 255.0
     qpos = np.concatenate([observation["state"]["arm_end_pose"], observation["state"]["arm_joint"], observation["state"]["gripper_rad"]], axis=-1).astype(np.float32)
     return {
-        "fisheye_cam": fisheye_cam,
+        "fisheye_rgb": fisheye_cam,
         "qpos": qpos,
     }
 
@@ -28,6 +28,7 @@ def get_model(usr_args):
 
 
 def eval(TASK_ENV, model, observation):
+    next_time = time.time()
     obs = encode_obs(observation)
     # instruction = TASK_ENV.get_instruction()
 
@@ -36,6 +37,14 @@ def eval(TASK_ENV, model, observation):
     for action in actions:
         TASK_ENV.take_action(action)
         observation = TASK_ENV.get_obs()
+        
+        next_time += TASK_ENV.target_interval
+        sleep_time = next_time - time.time()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        else:
+            TASK_ENV.logger.warning("Warning: Loop overrun, running behind schedule")
+            next_time = time.time()
     return observation
 
 

@@ -4,7 +4,7 @@ import numpy as np
 import hydra
 from pathlib import Path
 from collections import deque
-
+import time
 import yaml
 from datetime import datetime
 import importlib
@@ -92,9 +92,12 @@ class DPRunner:
             # obs_dict_input['front_cam'] = obs_dict['front_cam'].unsqueeze(0)
             # obs_dict_input["left_cam"] = obs_dict["left_cam"].unsqueeze(0)
             # obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
-            # obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
+            obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
 
+            start_time = time.time()
             action_dict = policy.predict_action(obs_dict_input)
+            end_time = time.time()
+            # print(f"Time taken: {end_time - start_time} seconds")
 
         # device_transfer
         np_action_dict = dict_apply(action_dict, lambda x: x.detach().to("cpu").numpy())

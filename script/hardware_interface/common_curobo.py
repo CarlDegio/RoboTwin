@@ -7,7 +7,7 @@ from pika import sense
 from .curobo_planner import CuroboPlanner
 from .math_utils import make_matrix_from_quaternion, quaternion_inv, quaternion_mul
 import copy
-
+from pyorbbecsdk import Context, Pipeline, Config, OBSensorType, OBFormat, VideoFrame, FrameSet
 
 def enable_piper_arm(arm_port="can0"):
     piper_arm = C_PiperInterface_V2(arm_port)
@@ -57,9 +57,9 @@ class pika_arm:
         
         self.gripper.set_camera_param(*self.camera_param)
         self.gripper.set_fisheye_camera_index(self.fisheye_camera_index)
-        self.gripper.set_realsense_serial_number(self.realsense_serial_number)
+        # self.gripper.set_realsense_serial_number(self.realsense_serial_number)
         self.fisheye_camera = self.gripper.get_fisheye_camera()
-        self.realsense_camera = self.gripper.get_realsense_camera()
+        # self.realsense_camera = self.gripper.get_realsense_camera()
 
         self.scale_factor = 1000
         self.position0 = None
@@ -75,26 +75,31 @@ class pika_arm:
         print("Pika系统初始化完成")
     
     def init_curobo_planner(self):
-        init_input = np.array([0.0,0.0,0.0,0.0,0.0,0.0])
+        init_input = self.get_joint_position()
         init_fk_result = self.planner.fk(init_input)
         init_ik_pose = np.concatenate([init_fk_result.ee_position.cpu().numpy()[0], init_fk_result.ee_quaternion.cpu().numpy()[0]])
-        init_ik_result = self.planner.ik(init_ik_pose, current_joint_angle=init_input)
+        for i in range(3):
+            init_ik_result = self.planner.ik(init_ik_pose, current_joint_angle=init_input)
     
     def on_record_start(self):
         self.position0, self.rotation0_quat = self.get_arm_pose_offset()
+        self.init_curobo_planner()
+        self.smooth_buffer = []
+        self.last_command_quat = None
+        
     
     def get_fisheye_rgb(self):
         success, frame = self.fisheye_camera.get_frame()
         if success == False or frame is None:
             raise Exception("获取鱼眼相机图像失败")
-        
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
 
     def get_realsense_rgb(self):
         success, frame = self.realsense_camera.get_color_frame()
         if success == False or frame is None:
             raise Exception("获取Realsense相机图像失败")
-        
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
 
     def get_realsense_depth(self):
@@ -247,7 +252,7 @@ class pika_arm:
     def disconnect(self):
         self.gripper.disable()
         self.fisheye_camera.disconnect()
-        self.realsense_camera.disconnect()
+        # self.realsense_camera.disconnect()
 
 
 class pika_sense:
@@ -288,9 +293,9 @@ class pika_sense:
         
         self.sense.set_camera_param(*self.camera_param)
         self.sense.set_fisheye_camera_index(self.fisheye_camera_index)
-        self.sense.set_realsense_serial_number(self.realsense_serial_number)
+        # self.sense.set_realsense_serial_number(self.realsense_serial_number)
         self.fisheye_camera = self.sense.get_fisheye_camera()
-        self.realsense_camera = self.sense.get_realsense_camera()
+        # self.realsense_camera = self.sense.get_realsense_camera()
         
         self.abs_pose0 = None
         
@@ -310,14 +315,14 @@ class pika_sense:
         success, frame = self.fisheye_camera.get_frame()
         if success == False or frame is None:
             raise Exception("获取鱼眼相机图像失败")
-        
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
     
     def get_realsense_rgb(self):
         success, frame = self.realsense_camera.get_color_frame()
         if success == False or frame is None:
             raise Exception("获取Realsense相机图像失败")
-        
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
     
     def get_realsense_depth(self):
@@ -345,3 +350,83 @@ class pika_sense:
     
     def disconnect(self):
         self.sense.disconnect()
+
+
+def frame_to_image(frame: VideoFrame):
+    width = frame.get_width()
+    height = frame.get_height()
+    color_format = frame.get_format()
+    data = np.asanyarray(frame.get_data())
+    image = np.zeros((height, width, 3), dtype=np.uint8)
+    if color_format == OBFormat.RGB:
+        image = np.resize(data, (height, width, 3))
+    elif color_format == OBFormat.BGR:
+        image = np.resize(data, (height, width, 3))
+    elif color_format == OBFormat.YUYV:
+        image = np.resize(data, (height, width, 2))
+        image = cv2.cvtColor(image, cv2.COLOR_YUV2BGR_YUYV)
+    elif color_format == OBFormat.MJPG:
+        image = cv2.imdecode(data, cv2.IMREAD_COLOR)
+    else:
+        print("Unsupported color format: {}".format(color_format))
+        return None
+    return image
+
+class FixCamera:
+    def __init__(self, camera_param=(320, 240, 60), orbbec_serial_number='CP7JC420000N'): # 'CP7JC420000N' 'CP7JC42000VF'
+        ctx = Context()
+        device_list = ctx.query_devices()
+        device = device_list.get_device_by_serial_number(orbbec_serial_number)
+        if device is None:
+            raise Exception("未检测到Orbbec相机")
+        print(f"成功检测到Orbbec相机:{orbbec_serial_number}")
+        
+        self.device = device
+        self.pipeline = Pipeline(device)
+        
+        
+        config = Config()
+        
+        profile_list = self.pipeline.get_stream_profile_list(OBSensorType.COLOR_SENSOR)
+        color_profile = profile_list.get_video_stream_profile(camera_param[0], camera_param[1], OBFormat.RGB, camera_param[2])
+        config.enable_stream(color_profile)
+        self.image_encoded = None
+
+        self.pipeline.start(config, lambda frames: self._on_frame_callback(frames))
+        print("启动Orbbec相机:", orbbec_serial_number)
+
+    def _on_frame_callback(self, frame: FrameSet):
+        if frame is None:
+            return
+
+        image_encoded = frame.get_color_frame()
+        if image_encoded is None:
+            return
+        self.image_encoded = image_encoded
+    
+    def get_rgb(self):
+        while self.image_encoded is None:
+            time.sleep(0.1)
+        return frame_to_image(self.image_encoded)
+        
+    def disconnect(self):
+        print("停止Orbbec相机:")
+        self.pipeline.stop()
+    
+    def __del__(self):
+        self.pipeline.stop()
+        
+        
+        
+if __name__ == "__main__":
+    camera = FixCamera()
+    while True:
+        start_time = time.time()
+        image = camera.get_rgb()
+        end_time = time.time()
+        print(f"time: {end_time - start_time}")
+        cv2.imshow("image", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        key=cv2.waitKey(100)
+        if key == ord('q'):
+            break
+    camera.disconnect()
