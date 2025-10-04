@@ -12,7 +12,8 @@ head_camera_type=D435
 DEBUG=False
 save_ckpt=True
 
-alg_name=robot_dp_$action_dim
+alg_name=robot_dp_${action_dim}_clip
+# alg_name=robot_dp_${action_dim}
 config_name=${alg_name}
 addition_info=train
 exp_name=${task_name}-robot_dp-${addition_info}

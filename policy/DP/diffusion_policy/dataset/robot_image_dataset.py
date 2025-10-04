@@ -29,6 +29,7 @@ class RobotImageDataset(BaseImageDataset):
         val_ratio=0.0,
         batch_size=128,
         max_train_episodes=None,
+        n_obs_steps=3,
     ):
 
         super().__init__()
@@ -51,6 +52,7 @@ class RobotImageDataset(BaseImageDataset):
         )
         self.train_mask = train_mask
         self.horizon = horizon
+        self.n_obs_steps = n_obs_steps
         self.pad_before = pad_before
         self.pad_after = pad_after
 
@@ -133,10 +135,15 @@ class RobotImageDataset(BaseImageDataset):
             raise ValueError(idx)
 
     def postprocess(self, samples, device):
-        agent_pos = samples["state"].to(device, non_blocking=True)
-        fisheye_cam = samples["fisheye_camera"].to(device, non_blocking=True) / 255.0
-        left_cam = samples['left_camera'].to(device, non_blocking=True) / 255.0
-        front_cam = samples['front_camera'].to(device, non_blocking=True) / 255.0
+        agent_pos = samples["state"][:, :self.n_obs_steps]
+        fisheye_cam = samples["fisheye_camera"][:, :self.n_obs_steps]
+        left_cam = samples['left_camera'][:, :self.n_obs_steps]
+        front_cam = samples['front_camera'][:, :self.n_obs_steps]
+        
+        agent_pos = agent_pos.to(device, non_blocking=True)
+        fisheye_cam = fisheye_cam.to(device, non_blocking=True) / 255.0
+        left_cam = left_cam.to(device, non_blocking=True) / 255.0
+        front_cam = front_cam.to(device, non_blocking=True) / 255.0
         # right_cam = samples['right_camera'].to(device, non_blocking=True) / 255.0
         action = samples["action"].to(device, non_blocking=True)
         val = samples["val"].to(device, non_blocking=True).sum(axis=1)

@@ -92,10 +92,15 @@ def main():
             action = np.concatenate([action_arm_end_pose[j], action_gripper_rad[j]], axis=-1)
 
             fisheye_img = cv2.imdecode(np.frombuffer(fisheye_img_bit, np.uint8), cv2.IMREAD_COLOR)
-            fisheye_camera_arrays.append(fisheye_img)
             left_img = cv2.imdecode(np.frombuffer(left_img_bit, np.uint8), cv2.IMREAD_COLOR)
-            left_camera_arrays.append(left_img)
             front_img = cv2.imdecode(np.frombuffer(front_img_bit, np.uint8), cv2.IMREAD_COLOR)
+            
+            fisheye_img = cv2.resize(fisheye_img, (224, 224))
+            left_img = cv2.resize(left_img, (224, 224))
+            front_img = cv2.resize(front_img, (224, 224))
+            
+            fisheye_camera_arrays.append(fisheye_img)
+            left_camera_arrays.append(left_img)
             front_camera_arrays.append(front_img)
             
             state_arrays.append(joint_state)

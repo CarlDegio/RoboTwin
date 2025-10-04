@@ -7,20 +7,25 @@ shape_meta: &shape_meta
     fisheye_camera:
       shape: *image_shape
       type: rgb
+      horizon: 3
     left_camera:
       shape: *image_shape
       type: rgb
+      horizon: 3
     front_camera:
       shape: *image_shape
       type: rgb
+      horizon: 3
     # right_cam:
     #   shape: *image_shape
     #   type: rgb
     agent_pos:
       shape: [14]
       type: low_dim
+      horizon: 3
   action:
     shape: [8]
+    horizon: ${horizon}
 
 env_runner:
   _target_: diffusion_policy.env_runner.pusht_image_runner.PushTImageRunner
@@ -48,3 +53,4 @@ dataset:
   seed: 42
   val_ratio: 0.02
   max_train_episodes: null
+  n_obs_steps: ${n_obs_steps}
