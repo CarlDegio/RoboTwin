@@ -367,6 +367,9 @@ def train_bc(train_dataloader, val_dataloader, config):
 
     policy = make_policy(policy_class, policy_config)
     policy.cuda()
+    # ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
+    # loading_status = policy.load_state_dict(torch.load(ckpt_path))
+    # print(f"Loaded policy weights from {ckpt_path}")
     optimizer = make_optimizer(policy_class, policy)
 
     train_history = []

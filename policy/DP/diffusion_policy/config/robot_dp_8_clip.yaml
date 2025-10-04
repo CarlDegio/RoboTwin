@@ -19,50 +19,62 @@ keypoint_visible_rate: 1.0
 obs_as_global_cond: True
 
 policy:
-  _target_: diffusion_policy.policy.diffusion_unet_image_policy.DiffusionUnetImageGuidePolicy
+  _target_: diffusion_policy.policy.diffusion_unet_timm_policy.DiffusionUnetTimmPolicy
 
   shape_meta: ${shape_meta}
   
   noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    num_train_timesteps: 100
+    _target_: diffusers.DDIMScheduler
+    num_train_timesteps: 50
     beta_start: 0.0001
     beta_end: 0.02
     beta_schedule: squaredcos_cap_v2
-    variance_type: fixed_small # Yilun's paper uses fixed_small_log instead, but easy to cause Nan
     clip_sample: True # required when predict_epsilon=False
+    set_alpha_to_one: True
+    steps_offset: 0
     prediction_type: epsilon # or sample
 
   obs_encoder:
-    _target_: diffusion_policy.model.vision.multi_image_obs_encoder.MultiImageObsEncoder
+    _target_: diffusion_policy.model.vision.timm_obs_encoder.TimmObsEncoder
     shape_meta: ${shape_meta}
-    rgb_model:
-      _target_: diffusion_policy.model.vision.model_getter.get_resnet
-      name: resnet18
-      weights: null
-    resize_shape: null
-    crop_shape: null
-    # constant center crop
-    random_crop: True
+
+    ##### from scratch #####
+    model_name: 'vit_base_patch16_clip_224.openai'
+    pretrained: True
+    frozen: False
+    global_pool: ''
+
+    # 'avg' or 'max' or 'soft_attention' or 'spatial_embedding' or 'transformer' or 'attention_pool_2d'
+    feature_aggregation: 'attention_pool_2d'
+    # feature_aggregation: null
+    position_encording: 'sinusoidal' # 'learnable' or 'sinusoidal'. it only works for transformer
+
+    # it only works for resnet. 32 (7x7) or 16 (14x14)
+    downsample_ratio: 32
+
+    transforms:
+      - type: RandomCrop
+        ratio: 0.95
+
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.3
+        contrast: 0.4
+        saturation: 0.5
+        hue: 0.08
+
     use_group_norm: True
     share_rgb_model: False
     imagenet_norm: True
 
-  horizon: ${horizon}
-  n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
-  n_obs_steps: ${n_obs_steps}
-  num_inference_steps: 100
-  obs_as_global_cond: ${obs_as_global_cond}
-  # crop_shape: null
+  num_inference_steps: 16
+  obs_as_global_cond: True
   diffusion_step_embed_dim: 128
-  # down_dims: [512, 1024, 2048]
-  down_dims: [256, 512, 1024]
+  down_dims: [256,512,1024]
   kernel_size: 5
   n_groups: 8
   cond_predict_scale: True
-
-  # scheduler.step params
-  # predict_epsilon: True
+  input_pertub: 0.1 # reference: https://github.com/forever208/DDPM-IP
+  train_diffusion_n_samples: 1
 
 ema:
   _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
@@ -73,14 +85,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
   shuffle: True
   pin_memory: True
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 64
+  batch_size: 32
   num_workers: 4
   shuffle: False
   pin_memory: True
@@ -88,7 +100,7 @@ val_dataloader:
 
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 5.0e-5
+  lr: 3.0e-4
   betas: [0.95, 0.999]
   eps: 1.0e-8
   weight_decay: 1.0e-6
@@ -101,7 +113,7 @@ training:
   # optimization
   lr_scheduler: cosine
   lr_warmup_steps: 500
-  num_epochs: 600
+  num_epochs: 200
   gradient_accumulate_every: 1 # set to 1 now
   # EMA destroys performance when used with BatchNorm
   # replace BatchNorm with GroupNorm.
@@ -109,8 +121,8 @@ training:
   freeze_encoder: False
   # training loop control
   # in epochs
-  rollout_every: 50
-  checkpoint_every: 200
+  rollout_every: 10
+  checkpoint_every: 40
   val_every: 1
   sample_every: 5
   # steps per epoch

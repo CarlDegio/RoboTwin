@@ -21,12 +21,12 @@ python3 imitate_episodes.py \
     --ckpt_dir ./act_ckpt/act-${task_name}/${task_config}-${expert_data_num} \
     --policy_class ACT \
     --kl_weight 10 \
-    --chunk_size 50 \
+    --chunk_size 15 \
     --hidden_dim 512 \
     --batch_size 64 \
     --dim_feedforward 3200 \
-    --num_epochs 6000 \
-    --lr 1e-5 \
+    --num_epochs 10000 \
+    --lr 5e-5 \
     --save_freq 2000 \
     --state_dim 14 \
     --seed ${seed}

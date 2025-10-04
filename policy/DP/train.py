@@ -49,8 +49,24 @@ def main(cfg: OmegaConf):
     cfg.task.image_shape = [3, head_camera_cfg["h"], head_camera_cfg["w"]]
     cfg.task.shape_meta.obs.fisheye_camera.shape = [
         3,
-        head_camera_cfg["h"],
-        head_camera_cfg["w"],
+        # head_camera_cfg["h"],
+        # head_camera_cfg["w"],
+        224,
+        224,
+    ]
+    cfg.task.shape_meta.obs.left_camera.shape = [
+        3,
+        # head_camera_cfg["h"],
+        # head_camera_cfg["w"],
+        224,
+        224,
+    ]
+    cfg.task.shape_meta.obs.front_camera.shape = [
+        3,
+        # head_camera_cfg["h"],
+        # head_camera_cfg["w"],
+        224,
+        224,
     ]
     OmegaConf.resolve(cfg)
 

@@ -1,8 +1,11 @@
 models/
 data/*
+data/
+processed_data/
 !data/process_stuck.py
 __pycache__/
 **/checkpoints/
+**/checkpoints_old/
 result/
 envs/curobo
 *.zip

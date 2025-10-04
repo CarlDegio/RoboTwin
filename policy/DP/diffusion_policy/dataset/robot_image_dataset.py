@@ -29,13 +29,14 @@ class RobotImageDataset(BaseImageDataset):
         val_ratio=0.0,
         batch_size=128,
         max_train_episodes=None,
+        n_obs_steps=3,
     ):
 
         super().__init__()
         self.replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path,
             # keys=['head_camera', 'front_camera', 'left_camera', 'right_camera', 'state', 'action'],
-            keys=["fisheye_camera", "state", "action", "val"],
+            keys=["fisheye_camera", "left_camera", "front_camera", "state", "action", "val"],
         )
 
         val_mask = get_val_mask(n_episodes=self.replay_buffer.n_episodes, val_ratio=val_ratio, seed=seed)
@@ -51,6 +52,7 @@ class RobotImageDataset(BaseImageDataset):
         )
         self.train_mask = train_mask
         self.horizon = horizon
+        self.n_obs_steps = n_obs_steps
         self.pad_before = pad_before
         self.pad_after = pad_after
 
@@ -84,8 +86,8 @@ class RobotImageDataset(BaseImageDataset):
         normalizer = LinearNormalizer()
         normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
         normalizer["fisheye_camera"] = get_image_range_normalizer()
-        # normalizer["front_cam"] = get_image_range_normalizer()
-        # normalizer["left_cam"] = get_image_range_normalizer()
+        normalizer["left_camera"] = get_image_range_normalizer()
+        normalizer["front_camera"] = get_image_range_normalizer()
         # normalizer["right_cam"] = get_image_range_normalizer()
         return normalizer
 
@@ -133,19 +135,24 @@ class RobotImageDataset(BaseImageDataset):
             raise ValueError(idx)
 
     def postprocess(self, samples, device):
-        agent_pos = samples["state"].to(device, non_blocking=True)
-        head_cam = samples["fisheye_camera"].to(device, non_blocking=True) / 255.0
-        # front_cam = samples['front_camera'].to(device, non_blocking=True) / 255.0
-        # left_cam = samples['left_camera'].to(device, non_blocking=True) / 255.0
+        agent_pos = samples["state"][:, :self.n_obs_steps]
+        fisheye_cam = samples["fisheye_camera"][:, :self.n_obs_steps]
+        left_cam = samples['left_camera'][:, :self.n_obs_steps]
+        front_cam = samples['front_camera'][:, :self.n_obs_steps]
+        
+        agent_pos = agent_pos.to(device, non_blocking=True)
+        fisheye_cam = fisheye_cam.to(device, non_blocking=True) / 255.0
+        left_cam = left_cam.to(device, non_blocking=True) / 255.0
+        front_cam = front_cam.to(device, non_blocking=True) / 255.0
         # right_cam = samples['right_camera'].to(device, non_blocking=True) / 255.0
         action = samples["action"].to(device, non_blocking=True)
         val = samples["val"].to(device, non_blocking=True).sum(axis=1)
         return {
             "obs": {
-                "fisheye_camera": head_cam,  # B, T, 3, H, W
+                "fisheye_camera": fisheye_cam,  # B, T, 3, H, W
                 # 'front_cam': front_cam, # B, T, 3, H, W
-                # 'left_cam': left_cam, # B, T, 3, H, W
-                # 'right_cam': right_cam, # B, T, 3, H, W
+                'left_camera': left_cam, # B, T, 3, H, W
+                'front_camera': front_cam, # B, T, 3, H, W
                 "agent_pos": agent_pos,  # B, T, D
             },
             "action": action,  # B, T, D

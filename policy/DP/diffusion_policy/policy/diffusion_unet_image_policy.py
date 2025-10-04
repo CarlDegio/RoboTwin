@@ -362,17 +362,17 @@ class DiffusionUnetImageGuidePolicy(BaseImagePolicy):
         
         reward_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=1,
-            model_dim=64, emb_dim=1578, dim_mult=[1,2,2,2],
+            model_dim=64, emb_dim=4650, dim_mult=[1,2,2,2],
             timestep_emb_type="positional", kernel_size=3)
         
         rnd_target_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=64,
-            model_dim=64, emb_dim=1578, dim_mult=[1,2,2],
+            model_dim=64, emb_dim=4650, dim_mult=[1,2,2,2],
             timestep_emb_type="positional", kernel_size=3)
         
         rnd_nn = HalfJannerUNet1d(
             horizon, action_dim, out_dim=64,
-            model_dim=32, emb_dim=1578, dim_mult=[1,2],
+            model_dim=32, emb_dim=4650, dim_mult=[1,2,4,2],
             timestep_emb_type="positional", kernel_size=3)
         
         self.reward_classifier = CumRewClassifier(reward_nn, device = "cuda")
@@ -431,8 +431,10 @@ class DiffusionUnetImageGuidePolicy(BaseImagePolicy):
 
             # 2. predict model output
             model_output = model(trajectory, t, local_cond=local_cond, global_cond=global_cond)
-            with torch.enable_grad():
-                log_p, grad = self.reward_classifier.gradients(trajectory.clone(), t, condition=global_cond)
+            
+            # guide_t = torch.full((condition_data.shape[0],), t, dtype=torch.long, device="cuda")
+            # with torch.enable_grad():
+            #     log_p, grad = self.reward_classifier.gradients(trajectory.clone(), guide_t, c=global_cond)
             
             # 3. compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(model_output, t, trajectory, generator=generator, w_cg=0.0, grad=None, **kwargs).prev_sample
