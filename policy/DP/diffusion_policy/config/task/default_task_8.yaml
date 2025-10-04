@@ -4,10 +4,10 @@ image_shape: &image_shape [3, -1, -1]
 shape_meta: &shape_meta
   # acceptable types: rgb, low_dim
   obs:
-    fisheye_camera:
-      shape: *image_shape
-      type: rgb
-      horizon: 3
+    # fisheye_camera:
+    #   shape: *image_shape
+    #   type: rgb
+    #   horizon: 3
     left_camera:
       shape: *image_shape
       type: rgb
