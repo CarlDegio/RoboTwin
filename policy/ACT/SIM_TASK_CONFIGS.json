@@ -36,7 +36,7 @@
         "num_episodes": 101,
         "episode_len": 300,
         "camera_names": [
-            "fisheye_rgb",
+            
             "left_rgb",
             "front_rgb"
         ]
