@@ -35,6 +35,7 @@ def get_model(usr_args):
 
 
 def eval(TASK_ENV, model, observation):
+    next_time = time.time()
     obs = encode_obs(observation)
     # instruction = TASK_ENV.get_instruction()
 
@@ -43,6 +44,14 @@ def eval(TASK_ENV, model, observation):
     for action in actions:
         TASK_ENV.take_action(action)
         observation = TASK_ENV.get_obs()
+        
+        next_time += TASK_ENV.target_interval
+        sleep_time = next_time - time.time()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        else:
+            TASK_ENV.logger.warning("Warning: Loop overrun, running behind schedule")
+            next_time = time.time()
     return observation
 
 

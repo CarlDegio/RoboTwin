@@ -37,7 +37,7 @@ class PikaEnv():
         self.logger = logging.getLogger("pika_env")
         self.target_interval = 0.1
         self.take_action_cnt = 0
-        self.step_lim = 300
+        self.step_lim = 600
         
         self.arm = pika_arm(fisheye_camera_index=8, gripper_port='/dev/ttyUSB0')
         self.arm.reset_arm_and_gripper_record()
