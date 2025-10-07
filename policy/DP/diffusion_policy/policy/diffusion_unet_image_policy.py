@@ -437,7 +437,7 @@ class DiffusionUnetImageGuidePolicy(BaseImagePolicy):
                 log_p, grad = self.reward_classifier.gradients(trajectory.clone(), guide_t, c=global_cond)
             
             # 3. compute previous image: x_t -> x_t-1
-            trajectory = scheduler.step(model_output, t, trajectory, generator=generator, w_cg=0.0, grad=grad, **kwargs).prev_sample
+            trajectory = scheduler.step(model_output, t, trajectory, generator=generator, w_cg=0.0, grad=None, **kwargs).prev_sample
 
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]
