@@ -5,8 +5,8 @@ import subprocess
 sys.path.append("./")
 sys.path.append(f"./policy")
 sys.path.append("./description/utils")
-from envs import CONFIGS_PATH
-from envs.utils.create_actor import UnStableError
+# from envs import CONFIGS_PATH
+# from envs.utils.create_actor import UnStableError
 
 import numpy as np
 from pathlib import Path
@@ -21,12 +21,15 @@ import pdb
 
 current_file_path = os.path.abspath(__file__)
 parent_directory = os.path.dirname(current_file_path)
-from hardware_interface.common_curobo import pika_arm, pika_sense, calibrate_arm, disable_piper_arm
+from hardware_interface.common_curobo import pika_arm, pika_sense, calibrate_arm, disable_piper_arm, FixCamera
 import hardware_interface.common_curobo as common
 import hardware_interface.math_utils as math_utils
 import time
 import logging
 import cv2
+
+from curobo.util import logger
+logger.setup_logger(level="error", logger_name="curobo")
 
 
 class PikaEnv():
@@ -39,28 +42,42 @@ class PikaEnv():
         self.arm = pika_arm(fisheye_camera_index=8, gripper_port='/dev/ttyUSB0')
         self.arm.reset_arm_and_gripper_record()
         
-        time.sleep(3)
+        time.sleep(5)
         print("arm pose", self.arm.get_arm_pose())
         print("arm pose offset", self.arm.get_arm_pose_offset())
         
+        self.left_camera = FixCamera(camera_param=(320, 240, 60), orbbec_serial_number='CP7JC42000VF')
+        self.front_camera = FixCamera(camera_param=(320, 240, 60), orbbec_serial_number='CP7JC420000N')
         
-        for _ in range(5):
+        for _ in range(3):
             fish_image = self.arm.get_fisheye_rgb()
-            realsense_image = self.arm.get_realsense_rgb()
-        print("camera check done, image shape:", fish_image.shape, realsense_image.shape)
+            left_image = self.left_camera.get_rgb()
+            front_image = self.front_camera.get_rgb()
+            
+        print("camera check done, image shape:", fish_image.shape, left_image.shape, front_image.shape)
         
-        self.logger.info("\033[0;32m"+"waiting for tele start..."+"\033[0m")
+        self.logger.info("\033[0;32m"+"waiting for policy start..."+"\033[0m")
             
         time.sleep(0.5)
         
     def get_obs(self):
         fish_image = self.arm.get_fisheye_rgb()
+        left_image = self.left_camera.get_rgb()
+        front_image = self.front_camera.get_rgb()
         fish_image = cv2.resize(fish_image, (320, 240))
+        left_image = cv2.resize(left_image, (320, 240))
+        front_image = cv2.resize(front_image, (320, 240))
+        cv2.imshow("fish_image", fish_image)
+        cv2.imshow("left_image", left_image)
+        cv2.imshow("front_image", front_image)
+        cv2.waitKey(1)
+        
         arm_joint_state = self.arm.get_joint_position()
-        gripper_rad_state = self.arm.get_gripper_msg()[1].reshape(-1, 1)
+        gripper_rad_state = self.arm.get_gripper_msg()[1]
+        gripper_rad_state = np.array([gripper_rad_state])
         arm_end_pose_state = np.concatenate(self.arm.get_arm_pose())
         dict_obs = {
-            "image": fish_image,
+            "image": {"fisheye_rgb": fish_image, "left_rgb": left_image, "front_rgb": front_image},
             "state": {
                 "arm_joint": arm_joint_state,
                 "gripper_rad": gripper_rad_state,
@@ -74,15 +91,22 @@ class PikaEnv():
         command_position, command_rotation_quat, command_gripper_rad = action[:3], action[3:7], action[7]
         command_rotation_quat = command_rotation_quat / np.linalg.norm(command_rotation_quat)
         
+        command_position, command_rotation_quat, command_gripper_rad = self.safe_check(command_position, command_rotation_quat, command_gripper_rad)
         self.arm.control_arm_end_pose(command_position, command_rotation_quat)
         self.arm.control_gripper(command_gripper_rad)
         self.take_action_cnt += 1
         
     def safe_check(self, command_position, command_rotation_quat, command_gripper_rad):
-        pass
+        assert command_position.shape == (3,), "command_position shape must be (3,)"
+        if command_position[2] < 0.1666 or command_position[2] > 0.5:
+            command_position[2] = np.clip(command_position[2], 0.1666, 0.5)
+            self.logger.warning("Warning: command_position[2] is out of range, clipped to 0.1666-0.5")
+        return command_position, command_rotation_quat, command_gripper_rad
         
     def close_env(self):
         self.arm.disconnect()
+        self.left_camera.disconnect()
+        self.front_camera.disconnect()
         
     def __del__(self):
         self.close_env()
@@ -192,24 +216,20 @@ def eval_policy(task_name,
         
         try:
             while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
-                start_time = time.time()
+                
                 observation = TASK_ENV.get_obs()
                 eval_func(TASK_ENV, model, observation)
                 
-                next_time = start_time + TASK_ENV.target_interval
-                sleep_time = next_time - time.time()
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-                else:
-                    TASK_ENV.logger.warning("Warning: Loop overrun, running behind schedule")
-                    next_time = time.time()
         except Exception as e:
             TASK_ENV.logger.error(f"try-catch Error: {e}")
             TASK_ENV.arm.reset_arm_and_gripper_record()
         finally:
+            TASK_ENV.arm.reset_arm_and_gripper_record()
+            time.sleep(1)
             TASK_ENV.close_env()
 
         now_seed += 1
+        succ_seed += 1
 
     return now_seed
 

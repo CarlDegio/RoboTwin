@@ -183,6 +183,7 @@ class ACT:
         # Stack images from all cameras
         curr_images = []
         camera_names = ["fisheye_cam", "left_cam", "front_cam"]
+        # camera_names = ["left_cam", "front_cam"]
         for cam_name in camera_names:
             curr_images.append(obs[cam_name])
         curr_image = np.stack(curr_images, axis=0)
