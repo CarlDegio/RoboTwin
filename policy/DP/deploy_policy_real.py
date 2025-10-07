@@ -4,9 +4,9 @@ import yaml
 import time
 
 def encode_obs(observation):
-    fisheye_camera = (np.moveaxis(observation["observation"]["fisheye_rgb"], -1, 0) / 255)
-    left_camera = (np.moveaxis(observation["observation"]["left_rgb"], -1, 0) / 255)
-    front_camera = (np.moveaxis(observation["observation"]["front_rgb"], -1, 0) / 255)
+    fisheye_camera = (np.moveaxis(observation["image"]["fisheye_rgb"], -1, 0) / 255)
+    left_camera = (np.moveaxis(observation["image"]["left_rgb"], -1, 0) / 255)
+    front_camera = (np.moveaxis(observation["image"]["front_rgb"], -1, 0) / 255)
     obs = dict(
         fisheye_camera=fisheye_camera,
         left_camera=left_camera,
