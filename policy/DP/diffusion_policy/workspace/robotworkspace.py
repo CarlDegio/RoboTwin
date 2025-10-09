@@ -169,15 +169,15 @@ class RobotWorkspace(BaseWorkspace):
                         raw_loss_dict = self.model.compute_loss(batch)
                         loss = raw_loss_dict["bc_loss"] / cfg.training.gradient_accumulate_every
                         
-                        self.model.reward_classifier.optim.zero_grad()
-                        raw_loss_dict["reward_loss"].backward()
-                        self.model.reward_classifier.optim.step()
-                        self.model.reward_classifier.ema_update()
+                        # self.model.reward_classifier.optim.zero_grad()
+                        # raw_loss_dict["reward_loss"].backward()
+                        # self.model.reward_classifier.optim.step()
+                        # self.model.reward_classifier.ema_update()
 
-                        self.model.rnd_target_classifier.optim.zero_grad()
-                        raw_loss_dict["rnd_loss"].backward()
-                        self.model.rnd_target_classifier.optim.step()
-                        self.model.rnd_target_classifier.ema_update()
+                        # self.model.rnd_target_classifier.optim.zero_grad()
+                        # raw_loss_dict["rnd_loss"].backward()
+                        # self.model.rnd_target_classifier.optim.step()
+                        # self.model.rnd_target_classifier.ema_update()
                         
                         self.optimizer.zero_grad()
                         loss.backward()
@@ -279,15 +279,15 @@ class RobotWorkspace(BaseWorkspace):
                     # checkpointing
                     save_name = pathlib.Path(self.cfg.task.dataset.zarr_path).stem
                     self.save_checkpoint(f"checkpoints/{save_name}-{seed}/{self.epoch + 1}.ckpt")  # TODO
-                    torch.save({"model":self.model.reward_classifier.model.state_dict(), 
-                                "model_ema":self.model.reward_classifier.model_ema.state_dict()},
-                               f"checkpoints/{save_name}-{seed}/reward_classifier_{self.epoch + 1}.pth")
-                    torch.save({"model":self.model.rnd_target_classifier.model.state_dict(), 
-                                "model_ema":self.model.rnd_target_classifier.model_ema.state_dict()
-                                },
-                               f"checkpoints/{save_name}-{seed}/rnd_classifier_{self.epoch + 1}.pth")
-                    torch.save({"model_target":self.model.rnd_target_classifier.target_model.state_dict()},
-                               f"checkpoints/{save_name}-{seed}/rnd_target_classifier_target_model_{self.epoch + 1}.pth")
+                    # torch.save({"model":self.model.reward_classifier.model.state_dict(), 
+                    #             "model_ema":self.model.reward_classifier.model_ema.state_dict()},
+                    #            f"checkpoints/{save_name}-{seed}/reward_classifier_{self.epoch + 1}.pth")
+                    # torch.save({"model":self.model.rnd_target_classifier.model.state_dict(), 
+                    #             "model_ema":self.model.rnd_target_classifier.model_ema.state_dict()
+                    #             },
+                    #            f"checkpoints/{save_name}-{seed}/rnd_classifier_{self.epoch + 1}.pth")
+                    # torch.save({"model_target":self.model.rnd_target_classifier.target_model.state_dict()},
+                    #            f"checkpoints/{save_name}-{seed}/rnd_target_classifier_target_model_{self.epoch + 1}.pth")
 
                 # ========= eval end for this epoch ==========
                 policy.train()

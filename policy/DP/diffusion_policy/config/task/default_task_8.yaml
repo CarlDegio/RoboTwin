@@ -11,18 +11,18 @@ shape_meta: &shape_meta
     left_camera:
       shape: *image_shape
       type: rgb
-      horizon: 3
+      horizon: ${n_obs_steps}
     front_camera:
       shape: *image_shape
       type: rgb
-      horizon: 3
+      horizon: ${n_obs_steps}
     # right_cam:
     #   shape: *image_shape
     #   type: rgb
     agent_pos:
       shape: [14]
       type: low_dim
-      horizon: 3
+      horizon: ${n_obs_steps}
   action:
     shape: [8]
     horizon: ${horizon}
