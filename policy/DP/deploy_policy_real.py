@@ -2,11 +2,18 @@ import numpy as np
 from .dp_model import DP
 import yaml
 import time
+import cv2
 
 def encode_obs(observation):
+    left_camera = observation["image"]["left_rgb"]
+    front_camera = observation["image"]["front_rgb"]
+    
+    left_camera = cv2.resize(left_camera, (224,224))
+    front_camera = cv2.resize(front_camera, (224,224))
+    
     # fisheye_camera = (np.moveaxis(observation["image"]["fisheye_rgb"], -1, 0) / 255)
-    left_camera = (np.moveaxis(observation["image"]["left_rgb"], -1, 0) / 255)
-    front_camera = (np.moveaxis(observation["image"]["front_rgb"], -1, 0) / 255)
+    left_camera = (np.moveaxis(left_camera, -1, 0) / 255)
+    front_camera = (np.moveaxis(front_camera, -1, 0) / 255)
     obs = dict(
         # fisheye_camera=fisheye_camera,
         left_camera=left_camera,
@@ -21,7 +28,7 @@ def get_model(usr_args):
     ckpt_file = f"./policy/DP/checkpoints/{usr_args['task_name']}-{usr_args['ckpt_setting']}-{usr_args['expert_data_num']}-{usr_args['seed']}/{usr_args['checkpoint_num']}.ckpt"
     action_dim = 8 # 2 gripper
     
-    load_config_path = f'./policy/DP/diffusion_policy/config/robot_dp_{action_dim}.yaml'
+    load_config_path = f'./policy/DP/diffusion_policy/config/robot_dp_{action_dim}_clip.yaml'
     with open(load_config_path, "r", encoding="utf-8") as f:
         model_training_config = yaml.safe_load(f)
     

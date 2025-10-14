@@ -164,24 +164,33 @@ def main(usr_args):
         video_save_dir.mkdir(parents=True, exist_ok=True)
         args["eval_video_save_dir"] = video_save_dir
 
+    
     TASK_ENV = PikaEnv()
-    args["policy_name"] = policy_name
+    try:
+        args["policy_name"] = policy_name
 
-    seed = usr_args["seed"]
+        seed = usr_args["seed"]
 
-    st_seed = 100000 * (1 + seed)
-    suc_nums = []
-    test_num = 1
+        st_seed = 100000 * (1 + seed)
+        suc_nums = []
+        test_num = 1
 
-    model = get_model(usr_args)
-    st_seed = eval_policy(task_name,
-                                   TASK_ENV,
-                                   args,
-                                   model,
-                                   st_seed,
-                                   test_num=test_num,
-                                   video_size=video_size,
-                                   instruction_type=instruction_type)
+        model = get_model(usr_args)
+        st_seed = eval_policy(task_name,
+                                        TASK_ENV,
+                                        args,
+                                        model,
+                                        st_seed,
+                                        test_num=test_num,
+                                        video_size=video_size,
+                                        instruction_type=instruction_type)
+    except Exception as e:
+        TASK_ENV.logger.error(f"try-catch Error: {e}")
+        TASK_ENV.arm.reset_arm_and_gripper_record()
+    finally:
+        TASK_ENV.arm.reset_arm_and_gripper_record()
+        time.sleep(1)
+        TASK_ENV.close_env()
     # return task_reward
 
 
@@ -214,19 +223,11 @@ def eval_policy(task_name,
         succ = False
         reset_func(model)
         
-        try:
-            while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
-                
-                observation = TASK_ENV.get_obs()
-                eval_func(TASK_ENV, model, observation)
-                
-        except Exception as e:
-            TASK_ENV.logger.error(f"try-catch Error: {e}")
-            TASK_ENV.arm.reset_arm_and_gripper_record()
-        finally:
-            TASK_ENV.arm.reset_arm_and_gripper_record()
-            time.sleep(1)
-            TASK_ENV.close_env()
+
+        while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
+            
+            observation = TASK_ENV.get_obs()
+            eval_func(TASK_ENV, model, observation)
 
         now_seed += 1
         succ_seed += 1
