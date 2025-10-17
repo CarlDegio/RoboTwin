@@ -9,9 +9,9 @@ task_name: ${task.name}
 shape_meta: ${task.shape_meta}
 exp_name: "default"
 
-horizon: 16
+horizon: 20
 n_obs_steps: 2
-n_action_steps: 14
+n_action_steps: 16
 n_latency_steps: 0
 dataset_obs_steps: ${n_obs_steps}
 past_action_visible: False
@@ -25,7 +25,7 @@ policy:
   
   noise_scheduler:
     _target_: diffusers.DDIMScheduler
-    num_train_timesteps: 50
+    num_train_timesteps: 200
     beta_start: 0.0001
     beta_end: 0.02
     beta_schedule: squaredcos_cap_v2
@@ -85,22 +85,22 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 64
-  num_workers: 4
+  batch_size: 40
+  num_workers: 16
   shuffle: True
   pin_memory: True
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 64
-  num_workers: 4
+  batch_size: 40
+  num_workers: 16
   shuffle: False
   pin_memory: True
   persistent_workers: True
 
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 3.0e-4
+  lr: 1.0e-4
   betas: [0.95, 0.999]
   eps: 1.0e-8
   weight_decay: 1.0e-6
