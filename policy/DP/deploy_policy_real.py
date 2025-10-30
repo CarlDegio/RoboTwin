@@ -7,15 +7,17 @@ import cv2
 def encode_obs(observation):
     left_camera = observation["image"]["left_rgb"]
     front_camera = observation["image"]["front_rgb"]
+    fisheye_camera = observation["image"]["fisheye_rgb"]
     
     left_camera = cv2.resize(left_camera, (224,224))
     front_camera = cv2.resize(front_camera, (224,224))
+    fisheye_camera = cv2.resize(fisheye_camera, (224,224))
     
-    # fisheye_camera = (np.moveaxis(observation["image"]["fisheye_rgb"], -1, 0) / 255)
     left_camera = (np.moveaxis(left_camera, -1, 0) / 255)
     front_camera = (np.moveaxis(front_camera, -1, 0) / 255)
+    fisheye_camera = (np.moveaxis(fisheye_camera, -1, 0) / 255)
     obs = dict(
-        # fisheye_camera=fisheye_camera,
+        fisheye_camera=fisheye_camera,
         left_camera=left_camera,
         front_camera=front_camera,
     )

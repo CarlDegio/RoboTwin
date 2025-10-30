@@ -88,7 +88,7 @@ class DPRunner:
         # run policy
         with torch.no_grad():
             obs_dict_input = {}  # flush unused keys
-            # obs_dict_input["fisheye_camera"] = obs_dict["fisheye_camera"].unsqueeze(0)
+            obs_dict_input["fisheye_camera"] = obs_dict["fisheye_camera"].unsqueeze(0)
             obs_dict_input['front_camera'] = obs_dict['front_camera'].unsqueeze(0)
             obs_dict_input["left_camera"] = obs_dict["left_camera"].unsqueeze(0)
             # obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
