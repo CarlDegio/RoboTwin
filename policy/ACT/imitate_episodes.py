@@ -56,7 +56,7 @@ def main(args):
         task_config = TASK_CONFIGS[task_name]
     dataset_dir = task_config["dataset_dir"]
     num_episodes = task_config["num_episodes"]
-    # episode_len = task_config["episode_len"]
+
     camera_names = task_config["camera_names"]
 
     # fixed parameters
@@ -95,7 +95,6 @@ def main(args):
     config = {
         "num_epochs": num_epochs,
         "ckpt_dir": ckpt_dir,
-        # "episode_len": episode_len,
         "state_dim": state_dim,
         "action_dim": action_dim,
         "lr": args["lr"],
@@ -179,7 +178,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
     onscreen_render = config["onscreen_render"]
     policy_config = config["policy_config"]
     camera_names = config["camera_names"]
-    max_timesteps = config["episode_len"]
+    # max_timesteps = config["episode_len"]
     task_name = config["task_name"]
     temporal_agg = config["temporal_agg"]
     onscreen_cam = "angle"
