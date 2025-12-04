@@ -25,7 +25,7 @@ from utils import compute_dict_mean, set_seed, detach_dict  # helper functions
 from act_policy import ACTPolicy, CNNMLPPolicy
 from visualize_episodes import save_videos
 
-from sim_env import BOX_POSE
+# from sim_env import BOX_POSE
 
 import IPython
 
@@ -56,7 +56,7 @@ def main(args):
         task_config = TASK_CONFIGS[task_name]
     dataset_dir = task_config["dataset_dir"]
     num_episodes = task_config["num_episodes"]
-    episode_len = task_config["episode_len"]
+    # episode_len = task_config["episode_len"]
     camera_names = task_config["camera_names"]
 
     # fixed parameters
@@ -95,7 +95,7 @@ def main(args):
     config = {
         "num_epochs": num_epochs,
         "ckpt_dir": ckpt_dir,
-        "episode_len": episode_len,
+        # "episode_len": episode_len,
         "state_dim": state_dim,
         "action_dim": action_dim,
         "lr": args["lr"],

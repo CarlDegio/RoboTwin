@@ -27,6 +27,6 @@ python3 imitate_episodes.py \
     --dim_feedforward 3200 \
     --num_epochs 10000 \
     --lr 5e-5 \
-    --save_freq 2000 \
+    --save_freq 5000 \
     --state_dim 14 \
     --seed ${seed}

@@ -124,7 +124,6 @@ if __name__ == "__main__":
     SIM_TASK_CONFIGS[f"sim-{task_name}-{task_config}-{expert_data_num}"] = {
         "dataset_dir": f"./processed_data/sim-{task_name}/{task_config}-{expert_data_num}",
         "num_episodes": expert_data_num,
-        "episode_len": 300,
         "camera_names": ["fisheye_rgb", "left_rgb", "front_rgb"],
     }
 
