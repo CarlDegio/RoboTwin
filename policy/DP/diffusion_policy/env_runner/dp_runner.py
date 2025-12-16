@@ -98,5 +98,6 @@ class DPRunner:
 
         # device_transfer
         np_action_dict = dict_apply(action_dict, lambda x: x.detach().to("cpu").numpy())
-        action = np_action_dict["action"].squeeze(0)[:self.n_action_steps]
+        n_latency_steps = 2 # HARDCODE
+        action = np_action_dict["action"].squeeze(0)[n_latency_steps:self.n_action_steps]
         return action

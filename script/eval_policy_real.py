@@ -98,7 +98,7 @@ class PikaEnv():
         
     def safe_check(self, command_position, command_rotation_quat, command_gripper_rad):
         assert command_position.shape == (3,), "command_position shape must be (3,)"
-        if command_position[2] < 0.1666 or command_position[2] > 0.5:
+        if command_position[2] < 0.1568 or command_position[2] > 0.5:
             command_position[2] = np.clip(command_position[2], 0.1666, 0.5)
             self.logger.warning("Warning: command_position[2] is out of range, clipped to 0.1666-0.5")
         return command_position, command_rotation_quat, command_gripper_rad
