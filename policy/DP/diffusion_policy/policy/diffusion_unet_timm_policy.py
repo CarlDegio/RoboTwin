@@ -13,6 +13,61 @@ from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy.model.vision.timm_obs_encoder import TimmObsEncoder
 from diffusion_policy.common.pytorch_util import dict_apply
 
+from cleandiffuser.nn_classifier import HalfJannerUNet1d, BaseNNClassifier
+from cleandiffuser.classifier import BaseClassifier
+from typing import Optional
+
+
+class CumRewClassifier(BaseClassifier):
+    def __init__(
+            self,
+            nn_classifier: BaseNNClassifier,
+            device: str = "cpu",
+            optim_params: Optional[dict] = None,
+    ):
+        super().__init__(nn_classifier, 0.995, None, optim_params, device)
+
+    def loss(self, x, noise, R, cond):
+        # x = x.view(x.shape[0], -1)
+        pred_R = self.model(x, noise, cond)
+        return ((pred_R - R) ** 2).mean()
+
+    def update(self, x, noise, R, cond):
+        self.optim.zero_grad()
+        loss = self.loss(x, noise, R, cond)
+        loss.backward()
+        self.optim.step()
+        self.ema_update()
+        return {"loss": loss.item()}
+
+    def logp(self, x, noise, cond):
+        # x = x.view(x.shape[0], -1)
+        return self.model_ema(x, noise, cond)
+
+
+class RNDClassifier(BaseClassifier):
+    def __init__(self, nn_classifier: BaseNNClassifier, target_model: BaseNNClassifier, 
+                 device: str = "cpu", optim_params: Optional[dict] = None, curiosity_weight: float = 10.):
+        super().__init__(nn_classifier, 0.995, None, optim_params, device)
+        self.target_model = target_model.to(device)
+        self.curiosity_weight = curiosity_weight
+        
+    def loss(self, x, noise, val, cond):
+        with torch.no_grad():
+            rnd_target = self.target_model(x, noise, cond)
+        pred_R = self.model(x, noise, None)
+        return ((pred_R - rnd_target) ** 2).mean()
+
+    def update(self, x, noise, val, cond):
+        self.optim.zero_grad()
+        loss = self.loss(x, noise, val, cond)
+        loss.backward()
+        self.optim.step()
+        self.ema_update()
+        return {"loss": loss.item()}
+
+    def logp(self, x, noise, cond):
+        return  -self.curiosity_weight*(((self.model_ema(x, noise, cond)-self.target_model(x, noise, cond))**2).sum(dim=1, keepdim=True))
 
 class DiffusionUnetTimmPolicy(BaseImagePolicy):
     def __init__(self, 
@@ -58,6 +113,24 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
             n_groups=n_groups,
             cond_predict_scale=cond_predict_scale
         )
+        
+        reward_nn = HalfJannerUNet1d(
+            action_horizon, action_dim, out_dim=1,
+            model_dim=64, emb_dim=4636, dim_mult=[1,2,2,2],
+            timestep_emb_type="positional", kernel_size=3)
+        
+        rnd_target_nn = HalfJannerUNet1d(
+            action_horizon, action_dim, out_dim=64,
+            model_dim=64, emb_dim=4636, dim_mult=[1,2,2,2],
+            timestep_emb_type="positional", kernel_size=3)
+        
+        rnd_nn = HalfJannerUNet1d(
+            action_horizon, action_dim, out_dim=64,
+            model_dim=32, emb_dim=4636, dim_mult=[1,2,4,2],
+            timestep_emb_type="positional", kernel_size=3)
+        
+        self.reward_classifier = CumRewClassifier(reward_nn, device = "cuda")
+        self.rnd_target_classifier = RNDClassifier(rnd_nn, rnd_target_nn, device="cuda")
 
         self.obs_encoder = obs_encoder
         self.model = model
@@ -101,10 +174,23 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
         for t in scheduler.timesteps:
             # 1. apply conditioning
             trajectory[condition_mask] = condition_data[condition_mask]
+            trajectory = trajectory.detach().requires_grad_()
+            
 
             # 2. predict model output
             model_output = model(trajectory, t, 
                 local_cond=local_cond, global_cond=global_cond)
+            
+            
+            # trajectory0 = scheduler.step(model_output, t, trajectory).pred_original_sample
+            # guide_t = torch.full((condition_data.shape[0],), t, dtype=torch.long, device="cuda")
+            # with torch.enable_grad():
+            #     log_p, cond_grad = self.reward_classifier.gradients(trajectory0, guide_t, c=global_cond)
+            #     cond_grad = -cond_grad
+            # guidance_scale = 1e-3
+            # grad_scale = guidance_scale * (1 - scheduler.alphas_cumprod[t]).sqrt()
+            # trajectory = trajectory.detach() + grad_scale * cond_grad
+            
 
             # 3. compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(
@@ -203,6 +289,8 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
         noisy_trajectory = self.noise_scheduler.add_noise(
             trajectory, noise_new, timesteps)
         
+        reward_loss = self.reward_classifier.loss(noisy_trajectory, timesteps, batch["val"], global_cond.detach())
+        rnd_loss = self.rnd_target_classifier.loss(noisy_trajectory, timesteps, None, global_cond.detach())
         # Predict the noise residual
         pred = self.model(
             noisy_trajectory,
@@ -226,8 +314,8 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
 
         loss_dict = {
             "bc_loss": loss,
-            "reward_loss": torch.tensor(0.0),
-            "rnd_loss": torch.tensor(0.0),
+            "reward_loss": reward_loss,
+            "rnd_loss": rnd_loss,
         }
         return loss_dict
 
